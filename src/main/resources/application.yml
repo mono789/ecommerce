@@ -1,0 +1,132 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: ecommerce-api
+  
+  profiles:
+    active: dev
+    
+  # Configuración PostgreSQL base
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          time_zone: America/Bogota
+        temp:
+          use_jdbc_metadata_defaults: false
+    open-in-view: false
+        
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+
+logging:
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+  file:
+    name: logs/ecommerce-api.log
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+  packages-to-scan: com.ecommerce.controller
+
+---
+# Perfil de Desarrollo
+spring:
+  config:
+    activate:
+      on-profile: dev
+      
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce_dev
+    username: ${DB_USERNAME:ecommerce_user}
+    password: ${DB_PASSWORD:ecommerce_password}
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        
+  sql:
+    init:
+      mode: always
+      
+logging:
+  level:
+    com.ecommerce: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+---
+# Perfil de Producción
+spring:
+  config:
+    activate:
+      on-profile: prod
+      
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:ecommerce_prod}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 50
+      minimum-idle: 10
+      
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    
+logging:
+  level:
+    com.ecommerce: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.web: WARN
+  file:
+    name: /var/logs/ecommerce-api.log
+
+---
+# Perfil de Testing
+spring:
+  config:
+    activate:
+      on-profile: test
+      
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect 
