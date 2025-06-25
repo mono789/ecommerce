@@ -9,10 +9,6 @@ import lombok.Builder;
 /**
  * Command para creación de categorías
  * Desacopla el request del servicio siguiendo el patrón Command
- * Sigue la estructura exacta del ejemplo del entrevistador
- * 
- * @author Developer
- * @version 1.0.0
  */
 @Data
 @Generated

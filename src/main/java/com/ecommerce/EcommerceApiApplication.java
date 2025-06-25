@@ -10,8 +10,7 @@ import io.swagger.v3.oas.annotations.info.License;
 /**
  * Aplicación principal del API de E-commerce
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @SpringBootApplication
 @OpenAPIDefinition(

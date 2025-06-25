@@ -11,8 +11,7 @@ import java.time.LocalDateTime;
 /**
  * DTO de response para información de categoría
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Data
 @NoArgsConstructor

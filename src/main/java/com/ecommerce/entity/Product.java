@@ -8,16 +8,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
  * Entidad que representa un producto del e-commerce
- * 
- * @author Developer
- * @version 1.0.0
  */
 @Entity
 @Table(name = "products")
@@ -25,8 +20,8 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"categories", "orderItems"})
-@EqualsAndHashCode(exclude = {"categories", "orderItems"})
+@ToString(exclude = {"categories"})
+@EqualsAndHashCode(exclude = {"categories"})
 public class Product {
     
     @Id
@@ -102,12 +97,4 @@ public class Product {
     )
     @Builder.Default
     private Set<Category> categories = new HashSet<>();
-    
-    /**
-     * Relación One-to-Many con OrderItems
-     * Un producto puede estar en múltiples items de orden
-     */
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    private List<OrderItem> orderItems = new ArrayList<>();
-} 
+}

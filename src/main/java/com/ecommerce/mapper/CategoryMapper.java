@@ -12,8 +12,7 @@ import java.util.List;
  * Mapper de MapStruct para la entidad Category
  * Soporta tanto Request como Command patterns
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface CategoryMapper {

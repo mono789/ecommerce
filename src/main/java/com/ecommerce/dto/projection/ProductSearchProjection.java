@@ -7,8 +7,7 @@ import java.time.LocalDateTime;
  * Interfaz de proyección para mapear los resultados de la búsqueda nativa de productos
  * Esta interfaz se utiliza para mapear los resultados de la query nativa con countQuery
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 public interface ProductSearchProjection {
     
@@ -91,9 +90,4 @@ public interface ProductSearchProjection {
      * @return IDs de las categorías concatenadas
      */
     String getCategoryIds();
-    
-    /**
-     * @return Puntuación de relevancia para ordenamiento por texto
-     */
-    Double getRelevanceScore();
 } 

@@ -10,8 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * DTO de request para crear una nueva categoría
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Data
 @NoArgsConstructor

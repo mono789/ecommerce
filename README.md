@@ -5,74 +5,155 @@ Aplicación Spring Boot profesional para e-commerce con **PostgreSQL**, búsqued
 ## 📋 Características Implementadas
 
 ✅ **6 Endpoints CRUD** funcionando con JPA  
-✅ **Relaciones JPA** - One-to-many y Many-to-many  
-✅ **Endpoint especial** de búsqueda con patrón REQUEST  
+✅ **Relación Many-to-Many** (Product ↔ Category)  
+✅ **Endpoint especial** de búsqueda con patrón REQUEST (POST con body)  
 ✅ **Query nativa** con countQuery y proyección a interfaz  
 ✅ **MapStruct** para mapeo de entidades  
 ✅ **Swagger** con documentación profesional  
 ✅ **PostgreSQL** como base de datos principal  
 ✅ **Docker** para fácil despliegue  
-✅ **Perfiles organizados** en archivos separados  
 ✅ **Patrón Command** para desacoplamiento  
 
+## 🎯 API Endpoints (6 CRUD + 1 Especial)
+
+### **📂 CATEGORÍAS (3 endpoints)**
+1. `POST /categories` - Crear categoría
+2. `GET /categories/{id}` - Obtener categoría por ID  
+3. `PUT /categories/{id}` - Actualizar categoría
+
+### **📦 PRODUCTOS (3 endpoints + 1 especial)**
+4. `POST /products` - Crear producto
+5. `GET /products/{id}` - Obtener producto por ID
+6. `PUT /products/{id}` - Actualizar producto
+7. **`POST /products/search`** - **Búsqueda especial con query nativa**
+
 ## 🏗️ Arquitectura con Patrón Command
+
+### **Entidades Principales**
+```
+Product ↔ Category (Many-to-Many)
+├── product_categories (tabla intermedia)
+```
 
 ### **Flujo de Ejecución**
 ```
 1. Request (DTO de entrada)
    ↓
-2. Command.builder()... (construcción manual)
+2. Command.builder()... (construcción manual en Controller)
    ↓
 3. Command (DTO interno)
    ↓
 4. Service.method(command)
    ↓
-5. Repository (query nativa)
+5. MapStruct Mapper
    ↓
-6. Response (DTO de salida)
+6. Repository (query nativa para búsqueda)
+   ↓
+7. Response (DTO de salida)
 ```
 
-### **Estructura de Commands**
+### **Estructura del Proyecto**
 ```
-src/main/java/com/ecommerce/dto/
-├── command/
-│   ├── ProductSearchCommand.java     # Búsqueda avanzada
-│   ├── UserCreateCommand.java        # Creación de usuarios
-│   ├── ProductCreateCommand.java     # Creación de productos
-│   └── CategoryCreateCommand.java    # Creación de categorías
-├── request/                          # DTOs de entrada
-└── response/                         # DTOs de respuesta
+src/main/java/com/ecommerce/
+├── entity/
+│   ├── Product.java                  # Entidad producto con todas las propiedades
+│   └── Category.java                 # Entidad categoría
+├── dto/
+│   ├── command/
+│   │   ├── ProductSearchCommand.java # Command para búsqueda
+│   │   ├── ProductCreateCommand.java # Command para crear productos
+│   │   └── CategoryCreateCommand.java# Command para crear categorías
+│   ├── request/                      # DTOs de entrada (3 clases)
+│   │   ├── ProductCreateRequest.java
+│   │   ├── ProductSearchRequest.java
+│   │   └── CategoryCreateRequest.java
+│   ├── response/                     # DTOs de respuesta (2 clases)
+│   │   ├── ProductResponse.java
+│   │   └── CategoryResponse.java
+│   └── projection/
+│       └── ProductSearchProjection.java # Interfaz para query nativa
+├── controller/
+│   ├── ProductController.java        # 4 endpoints (3 CRUD + 1 especial)
+│   └── CategoryController.java       # 3 endpoints CRUD
+├── service/
+│   ├── ProductService.java           # Lógica de productos
+│   └── CategoryService.java          # Lógica de categorías
+├── repository/
+│   ├── ProductRepository.java        # Query nativa simplificada
+│   └── CategoryRepository.java       # Repositorio categorías
+├── mapper/
+│   ├── ProductMapper.java            # MapStruct para productos
+│   └── CategoryMapper.java           # MapStruct para categorías
+└── config/
+    └── DataLoader.java               # Datos iniciales colombianos
 ```
 
-### **Construcción Manual con Builder Pattern**
+### **Relación Many-to-Many**
+```
+Product ↔ Category
+(product_categories table)
+
+Un producto puede tener múltiples categorías
+Una categoría puede tener múltiples productos
+```
+
+### **Query Nativa (PostgreSQL)**
+
+```sql
+-- Query principal
+SELECT 
+    p.product_id as id,
+    p.name as name,
+    p.description as description,
+    p.price as price,
+    p.stock as stock,
+    p.image_url as imageUrl,
+    p.brand as brand,
+    p.model as model,
+    p.weight as weight,
+    p.dimensions as dimensions,
+    p.active as active,
+    p.featured as featured,
+    p.created_at as createdAt,
+    p.updated_at as updatedAt,
+    '' as categoryNames,
+    '' as categoryIds
+FROM products p
+WHERE p.active = true
+    AND (:name IS NULL OR p.name ILIKE '%' || :name || '%')
+    AND (:brand IS NULL OR p.brand ILIKE '%' || :brand || '%')
+    AND (:minPrice IS NULL OR p.price >= :minPrice)
+    AND (:maxPrice IS NULL OR p.price <= :maxPrice)
+    AND (:minStock IS NULL OR p.stock >= :minStock)
+ORDER BY p.name ASC
+
+-- CountQuery separada
+SELECT COUNT(p.product_id)
+FROM products p
+WHERE p.active = true
+    AND (:name IS NULL OR p.name ILIKE '%' || :name || '%')
+    AND (:brand IS NULL OR p.brand ILIKE '%' || :brand || '%')
+    AND (:minPrice IS NULL OR p.price >= :minPrice)
+    AND (:maxPrice IS NULL OR p.price <= :maxPrice)
+    AND (:minStock IS NULL OR p.stock >= :minStock)
+```
+
+### **Endpoint Especial - Implementación del Patrón Command**
 ```java
-// En el Controller - Construcción manual campo por campo
 @PostMapping("/search")
 public ResponseEntity<Page<ProductSearchProjection>> searchProducts(
-        @RequestBody ProductSearchRequest request, Pageable pageable) {
-    
-    // Validación del request
-    if (request == null) {
-        throw new IllegalArgumentException("Request cannot be null");
-    }
+        @RequestBody ProductSearchRequest request) {
     
     // Construcción manual del Command usando Builder Pattern
     var command = ProductSearchCommand.builder()
         .name(request.getName())
-        .description(request.getDescription())
         .brand(request.getBrand())
         .minPrice(request.getMinPrice())
         .maxPrice(request.getMaxPrice())
         .minStock(request.getMinStock())
-        .active(request.getActive())
-        .featured(request.getFeatured())
-        .searchText(request.getSearchText())
-        .categoryIds(request.getCategoryIds())
-        .categoryNames(request.getCategoryNames())
-        .sortBy(request.getSortBy())
-        .sortDirection(request.getSortDirection())
         .build();
     
+    // Query nativa con countQuery separada y mapeo a interfaz
     var results = productService.searchProducts(command, pageable);
     return ResponseEntity.ok(results);
 }
@@ -85,13 +166,16 @@ public ResponseEntity<Page<ProductSearchProjection>> searchProducts(
 ```bash
 # Clonar repositorio
 git clone <repositorio-url>
-cd ecommerce-api
+cd "prueba tecnica"
 
 # Ejecutar con Docker Compose
 docker-compose up -d
 
 # Ver logs
 docker-compose logs -f ecommerce-api
+
+# Acceder a Swagger
+# http://localhost:8080/swagger-ui.html
 ```
 
 ### Opción 2: Instalación Local
@@ -99,9 +183,9 @@ docker-compose logs -f ecommerce-api
 #### Prerequisitos
 - Java 17+
 - Maven 3.8+
-- PostgreSQL 12+ (para perfil dev)
+- PostgreSQL 12+
 
-#### Ejecutar según el perfil:
+#### Ejecutar:
 
 **Desarrollo con PostgreSQL:**
 ```bash
@@ -114,12 +198,6 @@ psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE ecommerce_dev TO ecommerce
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-**Desarrollo local rápido con H2:**
-```bash
-# Sin configuración de BD necesaria
-mvn spring-boot:run -Dspring-boot.run.profiles=local
-```
-
 **Testing:**
 ```bash
 mvn test -Dspring.profiles.active=test
@@ -127,327 +205,214 @@ mvn test -Dspring.profiles.active=test
 
 ## 🌐 Acceso a la Aplicación
 
-- **API Base URL**: `http://localhost:8080/api/v1`
-- **Swagger UI**: `http://localhost:8080/api/v1/swagger-ui.html`
-- **API Docs**: `http://localhost:8080/api/v1/api-docs`
-- **H2 Console** (perfiles local/test): `http://localhost:8080/api/v1/h2-console`
+- **API Base URL**: `http://localhost:8080`
+- **Swagger UI**: `http://localhost:8080/swagger-ui.html`
+- **API Docs**: `http://localhost:8080/api-docs`
 - **pgAdmin** (Docker): `http://localhost:5050`
   - Email: `admin@ecommerce.com`
   - Password: `admin123`
 
-## 🗄️ Configuración de pgAdmin (Docker)
+## 🗄️ Datos Iniciales
 
-### **Acceso Inicial**
-1. Acceder a `http://localhost:5050`
-2. **Login:**
-   - Email: `admin@ecommerce.com`
-   - Password: `admin123`
+Se cargan automáticamente al iniciar la aplicación:
 
-### **Configurar Conexión a PostgreSQL**
-Una vez dentro de pgAdmin:
+### **Categorías (6)**
+- Tecnología
+- Smartphones  
+- Computadoras
+- Audio y Video
+- Gaming
+- Hogar Inteligente
 
-1. **Clic derecho en "Servers"** → **"Register"** → **"Server..."**
+### **Productos (8 con precios en COP)**
+- iPhone 14 Pro 128GB - $4,299,000
+- MacBook Air M2 13" - $5,499,000
+- Samsung Galaxy S23 256GB - $3,799,000
+- Sony WH-1000XM5 - $1,299,000
+- PlayStation 5 - $2,599,000
+- Amazon Echo Dot 5ta Gen - $199,000
+- Dell XPS 13 Plus - $6,299,000
+- AirPods Pro 2da Gen - $999,000
 
-2. **Pestaña "General":**
-   - **Name**: `E-commerce PostgreSQL`
+## 🧪 Pruebas en Swagger
 
-3. **Pestaña "Connection":**
-   - **Host name/address**: `postgres` ⚠️ *(importante: no localhost)*
-   - **Port**: `5432`
-   - **Maintenance database**: `ecommerce_dev`
-   - **Username**: `ecommerce_user`
-   - **Password**: `ecommerce_password`
-   - ✅ **Save password**: marcar
-
-4. **Clic en "Save"**
-
-### **Verificar Datos**
-Después de conectar, navegar a:
-```
-E-commerce PostgreSQL → Databases → ecommerce_dev → Schemas → public → Tables
-```
-
-**Tablas disponibles:**
-- `users` (5 usuarios de Colombia)
-- `categories` (6 categorías)
-- `products` (8 productos con precios COP)
-- `product_categories` (relaciones many-to-many)
-- `orders` (4 órdenes)
-- `order_items` (items de las órdenes)
-
-### **Consultas de Ejemplo**
-```sql
--- Ver usuarios por ciudad
-SELECT city, COUNT(*) as usuarios FROM users GROUP BY city;
-
--- Ver productos con sus categorías
-SELECT p.name, p.price, STRING_AGG(c.name, ', ') as categorias
-FROM products p
-JOIN product_categories pc ON p.id = pc.product_id
-JOIN categories c ON pc.category_id = c.id
-GROUP BY p.id, p.name, p.price;
-
--- Ver órdenes con envíos
-SELECT u.first_name, u.city, o.total_amount, o.shipping_cost
-FROM orders o
-JOIN users u ON o.user_id = u.id
-ORDER BY o.created_at DESC;
-```
-
-### **Solución de Problemas**
-- **Error de conexión**: Verificar que el contenedor `postgres` esté corriendo
-- **Host incorrecto**: Usar `postgres`, no `localhost` (red Docker)
-- **Base de datos no existe**: Esperar que la aplicación Spring Boot cree las tablas
-
-## ⚙️ Perfiles de Configuración
-
-La aplicación utiliza **archivos de configuración separados** para cada perfil:
-
-### 📁 Estructura de Configuración
-```
-src/main/resources/
-├── application.yml              # Configuración base común
-├── application-dev.yml          # Desarrollo con PostgreSQL
-├── application-docker.yml       # Docker Compose
-├── application-prod.yml         # Producción
-├── application-test.yml         # Testing con H2
-└── application-local.yml        # Desarrollo local con H2
-```
-
-### 🔧 Perfiles Disponibles
-
-| Perfil | Base de Datos | Uso | Activación |
-|--------|---------------|-----|------------|
-| **dev** | PostgreSQL (local) | Desarrollo principal | `spring.profiles.active=dev` |
-| **local** | H2 (memoria) | Desarrollo rápido | `spring.profiles.active=local` |
-| **docker** | PostgreSQL (container) | Docker Compose | `SPRING_PROFILES_ACTIVE=docker` |
-| **prod** | PostgreSQL (remota) | Producción | `spring.profiles.active=prod` |
-| **test** | H2 (memoria) | Testing | Automático en tests |
-
-## 🔍 Endpoint Especial - Búsqueda Avanzada
-
-### POST `/api/v1/products/search`
-
-Búsqueda avanzada con **patrón Command**, **query nativa**, **countQuery** optimizada y **proyección a interfaz**.
-
-#### **Flujo del Patrón Command:**
-```java
-// 1. Request del cliente
-ProductSearchRequest request = {...};
-
-// 2. Controller construye Command manualmente con Builder Pattern
-var command = ProductSearchCommand.builder()
-    .name(request.getName())
-    .description(request.getDescription())
-    .minPrice(request.getMinPrice())
-    .maxPrice(request.getMaxPrice())
-    .categoryIds(request.getCategoryIds())
-    .sortBy(request.getSortBy())
-    .build();
-
-// 3. Service ejecuta con Command
-Page<ProductSearchProjection> results = productService.searchProducts(command, pageable);
-```
-
-#### **Ejemplo de Request:**
+### **1. Crear Categoría**
 ```json
+POST /categories
 {
-  "name": "iPhone",
-  "description": "smartphone",
-  "brand": "Apple",
-  "minPrice": 1000000,
-  "maxPrice": 5000000,
-  "minStock": 1,
-  "active": true,
-  "featured": true,
-  "searchText": "teléfono",
-  "categoryIds": [1, 2],
-  "categoryNames": ["Smartphones", "Tecnología"],
-  "sortBy": "price",
-  "sortDirection": "asc"
+  "name": "Tecnología Avanzada",
+  "description": "Productos tecnológicos de última generación"
 }
 ```
 
-**Características:**
-- ✅ Patrón Command: Request → Command → Service
-- ✅ Paginación con `Pageable`
-- ✅ Query nativa PostgreSQL con JOINs
-- ✅ CountQuery separada para optimización
-- ✅ Mapeo a `ProductSearchProjection` (interfaz)
-- ✅ Búsqueda de texto con scoring de relevancia
-- ✅ Filtros múltiples dinámicos
-- ✅ Ordenamiento configurable
-- ✅ Desacoplamiento total
-
-## 📁 Endpoints CRUD con Patrón Command
-
-### 👤 Usuarios (Con Command)
-- `GET /api/v1/users` - Listar usuarios
-- `GET /api/v1/users/{id}` - Obtener usuario
-- `POST /api/v1/users` - Crear usuario (**usa UserCreateCommand**)
-- `PUT /api/v1/users/{id}` - Actualizar usuario (**usa UserCreateCommand**)
-- `DELETE /api/v1/users/{id}` - Eliminar usuario
-
-### 🏷️ Categorías (Con Command)
-- `GET /api/v1/categories` - Listar categorías
-- `GET /api/v1/categories/{id}` - Obtener categoría
-- `POST /api/v1/categories` - Crear categoría (**usa CategoryCreateCommand**)
-- `PUT /api/v1/categories/{id}` - Actualizar categoría (**usa CategoryCreateCommand**)
-- `DELETE /api/v1/categories/{id}` - Eliminar categoría
-
-### 📦 Productos (Con Command)
-- `GET /api/v1/products` - Listar productos
-- `GET /api/v1/products/{id}` - Obtener producto
-- `POST /api/v1/products` - Crear producto (**usa ProductCreateCommand**)
-- `PUT /api/v1/products/{id}` - Actualizar producto (**usa ProductCreateCommand**)
-- `DELETE /api/v1/products/{id}` - Eliminar producto
-- `POST /api/v1/products/search` - **Búsqueda avanzada** (**usa ProductSearchCommand**)
-
-## 🏗️ Arquitectura con Commands
-
-### **Capas de la Aplicación**
-```
-┌─────────────────────────────────────────┐
-│              CONTROLLER                 │
-│  - Recibe ProductSearchRequest          │
-│  - Construye ProductSearchCommand       │
-│  - Llama al Service                     │
-└─────────────────┬───────────────────────┘
-                  │ Command.builder()...build()
-                  ▼
-┌─────────────────────────────────────────┐
-│               SERVICE                   │
-│  - Recibe ProductSearchCommand          │
-│  - Ejecuta lógica de negocio            │
-│  - Llama al Repository                  │
-└─────────────────┬───────────────────────┘
-                  │ command properties
-                  ▼
-┌─────────────────────────────────────────┐
-│             REPOSITORY                  │
-│  - Query nativa con @Param              │
-│  - CountQuery separada                  │
-│  - Mapeo a ProductSearchProjection      │
-└─────────────────────────────────────────┘
+### **2. Crear Producto**
+```json
+POST /products
+{
+  "name": "iPhone 15 Pro",
+  "description": "Smartphone Apple con chip A17 Pro",
+  "price": 4500000,
+  "stock": 20,
+  "brand": "Apple",
+  "model": "iPhone 15 Pro",
+  "weight": 0.187,
+  "dimensions": "14.67 x 7.09 x 0.83 cm",
+  "featured": true,
+  "categoryIds": [1, 2]
+}
 ```
 
-## 📊 Datos de Prueba
+### **3. Búsqueda Especial (Query Nativa)**
+```json
+POST /products/search
+{
+  "name": "iPhone",
+  "brand": "Apple",
+  "minPrice": 1000000,
+  "maxPrice": 5000000,
+  "minStock": 5,
+  "page": 0,
+  "size": 10
+}
+```
 
-La aplicación incluye datos de prueba (cargados en perfiles dev, local, docker):
+### **4. Obtener por ID**
+```
+GET /categories/1
+GET /products/1
+```
 
-### 👥 Usuarios (5)
-- **Juan Carlos Rodríguez** - Bogotá, +573001234567
-- **María Fernanda Gómez** - Medellín, +573012345678
-- **Carlos Andrés Vargas** - Cali, +573023456789
-- **Ana Lucía Morales** - Barranquilla, +573034567890
-- **Diego Fernando Herrera** - Cartagena, +573045678901
+### **5. Actualizar**
+```json
+PUT /categories/1
+{
+  "name": "Tecnología Premium",
+  "description": "Productos tecnológicos premium"
+}
 
-### 📱 Productos (8) - Precios en COP
-- **iPhone 14 Pro**: $4.299.000 COP
-- **MacBook Air M2**: $5.499.000 COP
-- **Samsung Galaxy S23**: $3.499.000 COP
-- **AirPods Pro 2da Gen**: $899.000 COP
-- **PlayStation 5 Digital**: $2.299.000 COP
-- **Echo Dot 5ta Gen**: $199.000 COP
-- **Lenovo ThinkPad E14**: $2.799.000 COP
-- **JBL Flip 6**: $549.000 COP
+PUT /products/1
+{
+  "name": "iPhone 14 Pro Max",
+  "description": "iPhone actualizado",
+  "price": 4799000,
+  "stock": 15,
+  "brand": "Apple",
+  "model": "iPhone 14 Pro Max",
+  "weight": 0.240,
+  "dimensions": "16.07 x 7.81 x 0.78 cm",
+  "featured": true,
+  "categoryIds": [1, 2]
+}
+```
 
-### 📦 Órdenes (4)
-- Órdenes distribuidas entre diferentes ciudades colombianas
-- Envíos con **Servientrega**
-- Costos variables según destino
+## 🔧 Comandos Útiles
 
-## 🔗 Relaciones JPA
-
-### One-to-Many
-- `User` → `Orders` (Un usuario puede tener múltiples órdenes)
-- `Order` → `OrderItems` (Una orden puede tener múltiples items)
-- `Product` → `OrderItems` (Un producto puede estar en múltiples items)
-
-### Many-to-Many
-- `Product` ↔ `Categories` (Un producto puede tener múltiples categorías)
-
-## 🛠️ Tecnologías
-
-- **Framework**: Spring Boot 3.2.0
-- **Java**: 17
-- **Base de Datos**: PostgreSQL 15 / H2 (desarrollo)
-- **ORM**: Spring Data JPA / Hibernate
-- **Mapeo**: MapStruct 1.5.5 (solo para entidades)
-- **Patrón**: Command Pattern con Builder Manual
-- **Documentación**: SpringDoc OpenAPI 3
-- **Build**: Maven
-- **Testing**: JUnit 5 + Testcontainers
-- **Containerización**: Docker + Docker Compose
-
-## 🔧 Ejemplos de Uso con Commands
-
-### **Crear Usuario**
+### **Docker**
 ```bash
-curl -X POST http://localhost:8080/api/v1/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "Carlos",
-    "lastName": "Mendoza", 
-    "email": "carlos@example.com",
-    "phone": "+573001234567",
-    "address": "Carrera 15 #93-47",
-    "city": "Bogotá",
-    "country": "Colombia"
-  }'
+# Iniciar servicios
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f ecommerce-api
+
+# Parar servicios
+docker-compose down
+
+# Reiniciar solo la app
+docker-compose restart ecommerce-api
+
+# Acceder a PostgreSQL
+docker-compose exec postgres psql -U ecommerce_user -d ecommerce_db
 ```
 
-### **Búsqueda Avanzada de Productos**
+### **Maven**
 ```bash
-curl -X POST http://localhost:8080/api/v1/products/search?page=0&size=10 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "searchText": "iPhone",
-    "minPrice": 1000000,
-    "maxPrice": 5000000,
-    "categoryNames": ["Smartphones"],
-    "sortBy": "price",
-    "sortDirection": "asc"
-  }'
+# Compilar
+mvn clean compile
+
+# Ejecutar tests
+mvn test
+
+# Compilar y ejecutar
+mvn spring-boot:run
+
+# Generar JAR
+mvn clean package
 ```
 
-## 📈 Monitoreo y Logs
-
-### Logs por Perfil
-- **dev**: `logs/ecommerce-dev.log`
-- **local**: `logs/ecommerce-local.log`
-- **docker**: `logs/ecommerce-docker.log`
-- **prod**: `/var/logs/ecommerce-api.log`
-
-### Actuator Endpoints
+### **PostgreSQL**
 ```bash
-# Health check
-curl http://localhost:8080/api/v1/actuator/health
+# Conectar a DB local
+psql -h localhost -p 5432 -U ecommerce_user -d ecommerce_dev
 
-# Métricas (dev/local)
-curl http://localhost:8080/api/v1/actuator/metrics
+# Ver tablas
+\dt
 
-# Info de la aplicación
-curl http://localhost:8080/api/v1/actuator/info
+# Ver datos
+SELECT * FROM products;
+SELECT * FROM categories;
+SELECT * FROM product_categories;
+
+# Probar query nativa
+SELECT p.product_id, p.name, p.brand, p.price 
+FROM products p 
+WHERE p.active = true 
+  AND p.name ILIKE '%iPhone%'
+ORDER BY p.name;
 ```
 
-## 🚀 Despliegue en Producción
+## 🛠️ Tecnologías Utilizadas
 
-### Variables de Entorno Requeridas
-```bash
-DB_HOST=your-postgres-host
-DB_PORT=5432
-DB_NAME=ecommerce_prod
-DB_USERNAME=your-username
-DB_PASSWORD=your-password
-SPRING_PROFILES_ACTIVE=prod
-```
+- **Spring Boot 3.2.0** - Framework principal
+- **Spring Data JPA** - Persistencia de datos
+- **PostgreSQL 15** - Base de datos principal
+- **MapStruct 1.5.5** - Mapeo de entidades
+- **SpringDoc OpenAPI 3** - Documentación Swagger
+- **Lombok** - Reducción de boilerplate
+- **Bean Validation** - Validaciones
+- **Docker & Docker Compose** - Containerización
+- **Maven** - Gestión de dependencias
 
-### Configuración de Seguridad
-- Usuario no-root en contenedor
-- Healthchecks configurados
-- Timeouts optimizados
-- Pool de conexiones configurado
-- Compresión HTTP habilitada
-- HTTP/2 habilitado
-- Métricas Prometheus
+## 📊 Funcionalidades Técnicas
+
+### **Query Nativa**
+- Búsqueda con filtros básicos pero efectivos
+- Paginación con Pageable
+- CountQuery separada para performance
+- Mapeo automático a interfaz `ProductSearchProjection`
+- Sintaxis PostgreSQL (ILIKE, parámetros nombrados)
+- Ordenamiento fijo por nombre
+
+### **Patrón Command Simplificado**
+- Commands construidos manualmente con Builder
+- Separación clara entre Request y Command
+- Desacoplamiento entre Controllers y Services
+- Solo campos necesarios en ProductSearchCommand
+
+### **MapStruct**
+- Mapeo automático entre DTOs y Entidades
+- Configuraciones personalizadas con @Mapping
+- Generación de código en tiempo de compilación
+- Soporte para Product y Category
+
+### **Validaciones**
+- Bean Validation en DTOs
+- Validaciones de negocio en entidades
+- Manejo de errores con Spring Boot
+
+### **Docker**
+- Multi-stage build para optimización
+- Usuario no-root para seguridad
+- Variables de entorno configurables
+- Health checks incluidos
+
+## 🎯 Cumplimiento de Requisitos
+
+✅ **6 Endpoints CRUD**: 3 para Category + 3 para Product  
+✅ **Relaciones JPA**: Many-to-Many entre Product y Category  
+✅ **Endpoint especial**: POST /products/search con patrón REQUEST  
+✅ **Query nativa**: Con countQuery separada en PostgreSQL  
+✅ **Proyección a interfaz**: ProductSearchProjection  
+✅ **MapStruct**: Para Product y Category  
+✅ **Swagger**: Documentación completa  
+✅ **Tema e-commerce**: Productos y categorías tecnológicas  

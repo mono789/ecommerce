@@ -14,8 +14,7 @@ import java.util.List;
  * DTO de request para búsqueda avanzada de productos con filtros múltiples
  * Este es el request especial que se usará con POST para filtrar por varios atributos
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Data
 @NoArgsConstructor
@@ -88,4 +87,13 @@ public class ProductSearchRequest {
     @Schema(description = "Texto de búsqueda general que busca en nombre, descripción, marca y modelo", 
             example = "smartphone apple")
     private String searchText;
+    
+    @Min(value = 0, message = "El número de página no puede ser negativo")
+    @Schema(description = "Número de página (base 0)", example = "0")
+    private Integer page;
+    
+    @Min(value = 1, message = "El tamaño de página debe ser mayor a 0")
+    @Max(value = 100, message = "El tamaño de página no puede ser mayor a 100")
+    @Schema(description = "Tamaño de página", example = "10")
+    private Integer size;
 } 

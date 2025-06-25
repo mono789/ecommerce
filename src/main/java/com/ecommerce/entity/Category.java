@@ -13,8 +13,7 @@ import java.util.Set;
 /**
  * Entidad que representa una categoría de productos
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Entity
 @Table(name = "categories")

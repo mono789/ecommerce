@@ -14,26 +14,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
  * Controlador REST para gestión de categorías con patrón Command
  * 
- * Flujo implementado:
- * 1. CategoryCreateRequest (entrada)
- * 2. CategoryCreateCommand.builder() (construcción manual)
- * 3. CategoryService.createCategory(command)
- * 4. CategoryResponse (salida)
- * 
- * @author Developer
- * @version 1.0.0
+ * ENDPOINTS IMPLEMENTADOS (3 de los 6 requeridos):
+ * 1. POST /categories - Crear categoría
+ * 2. GET /categories/{id} - Obtener categoría por ID  
+ * 3. PUT /categories/{id} - Actualizar categoría
  */
 @RestController
 @RequestMapping("/categories")
@@ -61,12 +52,7 @@ public class CategoryController {
         
         log.info("REST: Creando nueva categoría con nombre: {}", request.getName());
         
-        // Validación del request
-        if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
-        }
-        
-        // Construcción manual del Command usando Builder Pattern
+        // Construcción del Command usando Builder Pattern
         var command = CategoryCreateCommand.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -95,24 +81,6 @@ public class CategoryController {
         return ResponseEntity.ok(response);
     }
     
-    @GetMapping
-    @Operation(
-        summary = "Obtener todas las categorías",
-        description = "Obtiene una lista paginada de todas las categorías del sistema"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de categorías obtenida exitosamente",
-                    content = @Content(schema = @Schema(implementation = Page.class)))
-    })
-    public ResponseEntity<Page<CategoryResponse>> getAllCategories(
-            @Parameter(description = "Parámetros de paginación y ordenamiento")
-            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        
-        log.info("REST: Obteniendo todas las categorías con paginación: {}", pageable);
-        Page<CategoryResponse> response = categoryService.getAllCategories(pageable);
-        return ResponseEntity.ok(response);
-    }
-    
     @PutMapping("/{id}")
     @Operation(
         summary = "Actualizar categoría",
@@ -133,51 +101,13 @@ public class CategoryController {
         
         log.info("REST: Actualizando categoría con ID: {}", id);
         
-        // Validación del request
-        if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
-        }
-        
-        // Construcción manual del Command usando Builder Pattern
+        // Construcción del Command usando Builder Pattern
         var command = CategoryCreateCommand.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .build();
         
         CategoryResponse response = categoryService.updateCategory(id, command);
-        return ResponseEntity.ok(response);
-    }
-    
-    @DeleteMapping("/{id}")
-    @Operation(
-        summary = "Eliminar categoría",
-        description = "Realiza una eliminación lógica (soft delete) de la categoría especificada"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Categoría eliminada exitosamente"),
-        @ApiResponse(responseCode = "404", description = "Categoría no encontrada")
-    })
-    public ResponseEntity<Void> deleteCategory(
-            @Parameter(description = "ID de la categoría a eliminar", required = true, example = "1")
-            @PathVariable Long id) {
-        
-        log.info("REST: Eliminando categoría con ID: {}", id);
-        categoryService.deleteCategory(id);
-        return ResponseEntity.noContent().build();
-    }
-    
-    @GetMapping("/active")
-    @Operation(
-        summary = "Obtener categorías activas",
-        description = "Obtiene todas las categorías activas ordenadas por nombre"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Categorías activas obtenidas exitosamente")
-    })
-    public ResponseEntity<List<CategoryResponse>> getActiveCategories() {
-        
-        log.info("REST: Obteniendo categorías activas");
-        List<CategoryResponse> response = categoryService.getActiveCategories();
         return ResponseEntity.ok(response);
     }
 } 

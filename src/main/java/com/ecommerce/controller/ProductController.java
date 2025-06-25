@@ -2,10 +2,10 @@ package com.ecommerce.controller;
 
 import com.ecommerce.dto.command.ProductCreateCommand;
 import com.ecommerce.dto.command.ProductSearchCommand;
+import com.ecommerce.dto.projection.ProductSearchProjection;
 import com.ecommerce.dto.request.ProductCreateRequest;
 import com.ecommerce.dto.request.ProductSearchRequest;
 import com.ecommerce.dto.response.ProductResponse;
-import com.ecommerce.dto.projection.ProductSearchProjection;
 import com.ecommerce.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,17 +19,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * Controlador REST para gestión de productos con patrón Command
- * Todos los endpoints CRUD implementan el patrón Command
  * 
- * @author Developer
- * @version 1.0.0
+ * ENDPOINTS IMPLEMENTADOS (3 de los 6 requeridos + 1 especial):
+ * 4. POST /products - Crear producto
+ * 5. GET /products/{id} - Obtener producto por ID
+ * 6. PUT /products/{id} - Actualizar producto
+ * 7. POST /products/search - Búsqueda especial con query nativa
  */
 @RestController
 @RequestMapping("/products")
@@ -55,37 +56,22 @@ public class ProductController {
     })
     public ResponseEntity<Page<ProductSearchProjection>> searchProducts(
             @Parameter(description = "Criterios de búsqueda", required = true)
-            @Valid @RequestBody ProductSearchRequest searchRequest,
-            @Parameter(description = "Parámetros de paginación")
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @Valid @RequestBody ProductSearchRequest searchRequest) {
         
         log.info("REST: Búsqueda avanzada de productos");
         
-        // Validación del request
-        if (searchRequest == null) {
-            throw new IllegalArgumentException("Search request cannot be null");
-        }
+        // Crear Pageable desde los parámetros del request
+        int page = searchRequest.getPage() != null ? searchRequest.getPage() : 0;
+        int size = searchRequest.getSize() != null ? searchRequest.getSize() : 10;
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         
-        // Construcción manual del Command usando Builder Pattern
+        // Construcción del Command simplificado usando Builder Pattern
         var searchCommand = ProductSearchCommand.builder()
                 .name(searchRequest.getName())
-                .description(searchRequest.getDescription())
                 .brand(searchRequest.getBrand())
-                .model(searchRequest.getModel())
                 .minPrice(searchRequest.getMinPrice())
                 .maxPrice(searchRequest.getMaxPrice())
                 .minStock(searchRequest.getMinStock())
-                .maxStock(searchRequest.getMaxStock())
-                .active(searchRequest.getActive())
-                .featured(searchRequest.getFeatured())
-                .minWeight(searchRequest.getMinWeight())
-                .maxWeight(searchRequest.getMaxWeight())
-                .dimensions(searchRequest.getDimensions())
-                .searchText(searchRequest.getSearchText())
-                .categoryIds(searchRequest.getCategoryIds())
-                .categoryNames(searchRequest.getCategoryNames())
-                .sortBy(searchRequest.getSortBy())
-                .sortDirection(searchRequest.getSortDirection())
                 .build();
         
         Page<ProductSearchProjection> results = productService.searchProducts(searchCommand, pageable);
@@ -108,12 +94,7 @@ public class ProductController {
         
         log.info("REST: Creando nuevo producto con nombre: {}", request.getName());
         
-        // Validación del request
-        if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
-        }
-        
-        // Construcción manual del Command usando Builder Pattern
+        // Construcción del Command usando Builder Pattern
         var command = ProductCreateCommand.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -152,24 +133,6 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
     
-    @GetMapping
-    @Operation(
-        summary = "Obtener todos los productos",
-        description = "Lista paginada de productos"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Lista de productos obtenida exitosamente",
-                    content = @Content(schema = @Schema(implementation = Page.class)))
-    })
-    public ResponseEntity<Page<ProductResponse>> getAllProducts(
-            @Parameter(description = "Parámetros de paginación y ordenamiento")
-            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        
-        log.info("REST: Obteniendo todos los productos con paginación: {}", pageable);
-        Page<ProductResponse> response = productService.getAllProducts(pageable);
-        return ResponseEntity.ok(response);
-    }
-    
     @PutMapping("/{id}")
     @Operation(
         summary = "Actualizar producto",
@@ -189,12 +152,7 @@ public class ProductController {
         
         log.info("REST: Actualizando producto con ID: {}", id);
         
-        // Validación del request
-        if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
-        }
-        
-        // Construcción manual del Command usando Builder Pattern
+        // Construcción del Command usando Builder Pattern
         var command = ProductCreateCommand.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -212,23 +170,5 @@ public class ProductController {
         
         ProductResponse response = productService.updateProduct(id, command);
         return ResponseEntity.ok(response);
-    }
-    
-    @DeleteMapping("/{id}")
-    @Operation(
-        summary = "Eliminar producto",
-        description = "Elimina un producto del sistema (soft delete)"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "204", description = "Producto eliminado exitosamente"),
-        @ApiResponse(responseCode = "404", description = "Producto no encontrado")
-    })
-    public ResponseEntity<Void> deleteProduct(
-            @Parameter(description = "ID del producto a eliminar", required = true, example = "1")
-            @PathVariable Long id) {
-        
-        log.info("REST: Eliminando producto con ID: {}", id);
-        productService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
     }
 } 

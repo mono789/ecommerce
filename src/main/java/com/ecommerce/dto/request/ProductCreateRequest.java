@@ -13,8 +13,7 @@ import java.util.List;
 /**
  * DTO de request para crear un nuevo producto
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Data
 @NoArgsConstructor

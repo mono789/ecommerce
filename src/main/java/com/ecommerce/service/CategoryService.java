@@ -17,8 +17,7 @@ import java.util.List;
 /**
  * Servicio para gestión de categorías con patrón Command
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Service
 @RequiredArgsConstructor

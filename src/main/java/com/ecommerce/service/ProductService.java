@@ -8,6 +8,7 @@ import com.ecommerce.entity.Product;
 import com.ecommerce.entity.Category;
 import com.ecommerce.repository.ProductRepository;
 import com.ecommerce.repository.CategoryRepository;
+import com.ecommerce.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
 import java.util.HashSet;
 
 /**
@@ -24,8 +24,7 @@ import java.util.HashSet;
  * Incluye la búsqueda especial con query nativa y CRUD completo
  * Implementa el patrón Command para desacoplar requests
  * 
- * @author Developer
- * @version 1.0.0
+ * 
  */
 @Service
 @RequiredArgsConstructor
@@ -35,6 +34,7 @@ public class ProductService {
     
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductMapper productMapper;
     
     /**
      * Búsqueda avanzada de productos usando query nativa con countQuery
@@ -50,38 +50,13 @@ public class ProductService {
     public Page<ProductSearchProjection> searchProducts(ProductSearchCommand searchCommand, Pageable pageable) {
         log.info("Ejecutando búsqueda avanzada de productos con criterios: {}", searchCommand);
         
-        // Preparar parámetros de ordenamiento
-        String sortBy = searchCommand.getSortBy();
-        String sortDirection = searchCommand.getSortDirection();
-        
-        // Valores por defecto para ordenamiento
-        if (sortBy == null || sortBy.trim().isEmpty()) {
-            sortBy = "createdAt";
-        }
-        if (sortDirection == null || sortDirection.trim().isEmpty()) {
-            sortDirection = "desc";
-        }
-        
-        // Ejecutar la query nativa con countQuery y mapeo a interfaz
+        // Ejecutar la query nativa simplificada con countQuery y mapeo a interfaz
         Page<ProductSearchProjection> results = productRepository.searchProducts(
             searchCommand.getName(),
-            searchCommand.getDescription(),
             searchCommand.getBrand(),
-            searchCommand.getModel(),
             searchCommand.getMinPrice(),
             searchCommand.getMaxPrice(),
             searchCommand.getMinStock(),
-            searchCommand.getMaxStock(),
-            searchCommand.getActive(),
-            searchCommand.getFeatured(),
-            searchCommand.getMinWeight(),
-            searchCommand.getMaxWeight(),
-            searchCommand.getDimensions(),
-            searchCommand.getSearchText(),
-            searchCommand.getCategoryIds(),
-            searchCommand.getCategoryNames(),
-            sortBy,
-            sortDirection,
             pageable
         );
         
@@ -97,20 +72,8 @@ public class ProductService {
     public ProductResponse createProduct(ProductCreateCommand command) {
         log.info("Creando producto con nombre: {}", command.getName());
         
-        // Crear entidad Product
-        Product product = Product.builder()
-                .name(command.getName())
-                .description(command.getDescription())
-                .price(command.getPrice())
-                .stock(command.getStock())
-                .imageUrl(command.getImageUrl())
-                .brand(command.getBrand())
-                .model(command.getModel())
-                .weight(command.getWeight())
-                .dimensions(command.getDimensions())
-                .active(command.getActive() != null ? command.getActive() : true)
-                .featured(command.getFeatured() != null ? command.getFeatured() : false)
-                .build();
+        // Usar ProductMapper (consistente con UserService y CategoryService)
+        Product product = productMapper.toEntityFromCommand(command);
         
         // Agregar categorías si se especificaron
         if (command.getCategoryIds() != null && !command.getCategoryIds().isEmpty()) {
@@ -121,7 +84,7 @@ public class ProductService {
         Product savedProduct = productRepository.save(product);
         
         log.info("Producto creado exitosamente con ID: {}", savedProduct.getId());
-        return convertToResponse(savedProduct);
+        return productMapper.toResponse(savedProduct);
     }
     
     /**
@@ -134,7 +97,7 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + id));
         
-        return convertToResponse(product);
+        return productMapper.toResponse(product);
     }
     
     /**
@@ -145,7 +108,7 @@ public class ProductService {
         log.info("Obteniendo productos con paginación: {}", pageable);
         
         Page<Product> products = productRepository.findAll(pageable);
-        return products.map(this::convertToResponse);
+        return products.map(productMapper::toResponse);
     }
     
     /**
@@ -157,22 +120,8 @@ public class ProductService {
         Product existingProduct = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + id));
         
-        // Actualizar campos
-        existingProduct.setName(command.getName());
-        existingProduct.setDescription(command.getDescription());
-        existingProduct.setPrice(command.getPrice());
-        existingProduct.setStock(command.getStock());
-        existingProduct.setImageUrl(command.getImageUrl());
-        existingProduct.setBrand(command.getBrand());
-        existingProduct.setModel(command.getModel());
-        existingProduct.setWeight(command.getWeight());
-        existingProduct.setDimensions(command.getDimensions());
-        if (command.getActive() != null) {
-            existingProduct.setActive(command.getActive());
-        }
-        if (command.getFeatured() != null) {
-            existingProduct.setFeatured(command.getFeatured());
-        }
+        // Usar ProductMapper para actualizar la entidad (consistente con otros servicios)
+        productMapper.updateEntityFromCommand(command, existingProduct);
         
         // Actualizar categorías si se especificaron
         if (command.getCategoryIds() != null) {
@@ -183,7 +132,7 @@ public class ProductService {
         Product updatedProduct = productRepository.save(existingProduct);
         
         log.info("Producto actualizado exitosamente con ID: {}", updatedProduct.getId());
-        return convertToResponse(updatedProduct);
+        return productMapper.toResponse(updatedProduct);
     }
     
     /**
@@ -199,27 +148,5 @@ public class ProductService {
         productRepository.save(product);
         
         log.info("Producto eliminado exitosamente con ID: {}", id);
-    }
-    
-    /**
-     * Convierte Product a ProductResponse
-     */
-    private ProductResponse convertToResponse(Product product) {
-        return ProductResponse.builder()
-                .id(product.getId())
-                .name(product.getName())
-                .description(product.getDescription())
-                .price(product.getPrice())
-                .stock(product.getStock())
-                .imageUrl(product.getImageUrl())
-                .brand(product.getBrand())
-                .model(product.getModel())
-                .weight(product.getWeight())
-                .dimensions(product.getDimensions())
-                .active(product.getActive())
-                .featured(product.getFeatured())
-                .createdAt(product.getCreatedAt())
-                .updatedAt(product.getUpdatedAt())
-                .build();
     }
 } 
