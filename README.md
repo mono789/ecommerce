@@ -212,6 +212,81 @@ mvn test -Dspring.profiles.active=test
   - Email: `admin@ecommerce.com`
   - Password: `admin123`
 
+### **🐘 Configuración de pgAdmin**
+
+pgAdmin se ejecuta automáticamente con Docker Compose para gestión visual de PostgreSQL:
+
+#### **Acceso inicial:**
+1. Abrir: `http://localhost:5050`
+2. **Login:**
+   - Email: `admin@ecommerce.com`
+   - Password: `admin123`
+
+#### **Configurar servidor PostgreSQL:**
+1. **Clic derecho en "Servers" → "Register" → "Server"**
+2. **Pestaña "General":**
+   - Name: `Ecommerce DB`
+3. **Pestaña "Connection":**
+   - Host name/address: `postgres` (nombre del contenedor)
+   - Port: `5432`
+   - Maintenance database: `ecommerce_db`
+   - Username: `ecommerce_user`
+   - Password: `ecommerce_password`
+4. **Guardar**
+
+#### **Acceso directo desde host:**
+Si prefieres conectar desde herramientas externas:
+- **Host**: `localhost`
+- **Port**: `5433` (mapeado desde Docker)
+- **Database**: `ecommerce_db`
+- **User**: `ecommerce_user`
+- **Password**: `ecommerce_password`
+
+#### **🔧 Troubleshooting pgAdmin:**
+
+**Si no puedes conectar a PostgreSQL desde pgAdmin:**
+1. Verificar que ambos contenedores estén ejecutándose:
+   ```bash
+   docker-compose ps
+   ```
+
+2. Verificar conectividad de red:
+   ```bash
+   docker-compose exec pgadmin ping postgres
+   ```
+
+3. Revisar logs de pgAdmin:
+   ```bash
+   docker-compose logs pgadmin
+   ```
+
+4. Reiniciar pgAdmin si es necesario:
+   ```bash
+   docker-compose restart pgadmin
+   ```
+
+**Datos de conexión correctos para pgAdmin:**
+- ⚠️ **Importante**: Usar `postgres` como host (nombre del contenedor)
+- ⚠️ **No usar** `localhost` o `127.0.0.1` desde pgAdmin
+- ⚠️ **Puerto interno**: `5432` (no 5433)
+
+**Consultas útiles en pgAdmin:**
+```sql
+-- Ver todas las tablas
+SELECT table_name FROM information_schema.tables 
+WHERE table_schema = 'public';
+
+-- Verificar datos iniciales
+SELECT COUNT(*) as total_products FROM products;
+SELECT COUNT(*) as total_categories FROM categories;
+
+-- Ver relaciones many-to-many
+SELECT p.name as producto, c.name as categoria
+FROM products p
+JOIN product_categories pc ON p.product_id = pc.product_id
+JOIN categories c ON pc.category_id = c.category_id;
+```
+
 ## 🗄️ Datos Iniciales
 
 Se cargan automáticamente al iniciar la aplicación:
@@ -323,6 +398,12 @@ docker-compose restart ecommerce-api
 
 # Acceder a PostgreSQL
 docker-compose exec postgres psql -U ecommerce_user -d ecommerce_db
+
+# Reiniciar pgAdmin
+docker-compose restart pgadmin
+
+# Ver logs de pgAdmin
+docker-compose logs pgadmin
 ```
 
 ### **Maven**
